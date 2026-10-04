@@ -1,8 +1,0 @@
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-api_key = os.getenv("CENSUS_API_KEY")
-
-if not api_key:
-    raise RuntimeError("CENSUS_API_KEY is missing")
