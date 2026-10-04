@@ -1,0 +1,12 @@
+# Credentials
+.env
+.env.*
+!.env.example
+
+# Local Python environment and cache
+.venv/
+__pycache__/
+*.pyc
+
+# Local datasets
+data/
