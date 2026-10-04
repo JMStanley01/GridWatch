@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-
+import json
 
 from datetime import datetime, timezone
 
@@ -38,6 +38,33 @@ output_path = output_dir / f"richmond_acs5_2024_{retrieved_at}.json"
 output_path.write_bytes(response.content)
 
 print(f"Raw data saved to: {output_path}")
+
+metadata = {
+    "source": "U.S. Census Bureau",
+    "dataset": "ACS 5-year",
+    "dataset_year": 2024,
+    "coverage_period": "2020-2024",
+    "geography": "Richmond city, Virginia census tracts",
+    "endpoint": url,
+    "parameters": {
+        name: value
+        for name, value in params.items()
+        if name != "key"
+    },
+    "retrieved_at_utc": retrieved_at,
+    "raw_file": output_path.name,
+    "tract_count": len(data) - 1,
+    "http_status": response.status_code,
+}
+
+metadata_path = output_path.with_suffix(".metadata.json")
+metadata_path.write_text(
+    json.dumps(metadata, indent=2),
+    encoding="utf-8",
+)
+
+print(f"Metadata saved to: {metadata_path}")
+
 
 print("Columns:", data[0])
 print("First tract:", data[1])
