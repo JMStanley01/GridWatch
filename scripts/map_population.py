@@ -69,6 +69,8 @@ def build_map(path):
 
     print(f"Map saved to: {output_path}")
 
+    return output_path
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:

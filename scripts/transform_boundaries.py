@@ -40,6 +40,8 @@ def transform_file(path):
     print(f"Coordinate reference system: {richmond.crs}")
     print(richmond[["geoid", "tract_name"]].head())
 
+    return output_path
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:

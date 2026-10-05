@@ -59,6 +59,8 @@ def join_files(census_path, boundaries_path):
     print(f"Joined {len(joined)} tracts with matching GEOIDs")
     print(joined[["geoid", "population", "households"]].head())
 
+    return output_path
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

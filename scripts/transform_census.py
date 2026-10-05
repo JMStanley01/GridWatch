@@ -46,6 +46,8 @@ def transform_file(path):
     print(f"Transformed {len(records)} tracts")
     print("First record:", records[0])
 
+    return output_path
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
