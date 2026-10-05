@@ -32,8 +32,14 @@ def join_files(census_path, boundaries_path):
             f"Missing estimates: {sorted(boundary_ids - census_ids)}"
         )
 
+    census_columns = ["geoid", "population", "households"]
+
+    moe_columns = ["population_moe", "households_moe"]
+    if all(column in census.columns for column in moe_columns):
+        census_columns.extend(moe_columns)
+
     joined = boundaries.merge(
-        census[["geoid", "population", "households"]],
+        census[census_columns],
         on="geoid",
         how="left",
         validate="one_to_one",

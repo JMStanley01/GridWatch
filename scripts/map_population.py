@@ -30,8 +30,20 @@ def build_map(path):
 
     population_layer.geojson.add_child(
         folium.GeoJsonTooltip(
-            fields=["geoid", "population", "households"],
-            aliases=["Tract GEOID:", "Population:", "Households:"],
+            fields=[
+                "geoid",
+                "population",
+                "population_moe",
+                "households",
+                "households_moe",
+            ],
+            aliases=[
+                "Tract GEOID:",
+                "Population estimate:",
+                "Population MOE (90%):",
+                "Household estimate:",
+                "Household MOE (90%):",
+            ],
             localize=True,
         )
     )

@@ -16,7 +16,10 @@ if not api_key:
 
 url = "https://api.census.gov/data/2024/acs/acs5"
 params = {
-    "get": "NAME,B01003_001E,B11001_001E",
+    "get": (
+        "NAME,B01003_001E,B11001_001E,"
+        "B01003_001M,B11001_001M"
+    ),
     "for": "tract:*",
     "in": "state:51 county:760",
     "key": api_key,

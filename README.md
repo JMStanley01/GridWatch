@@ -1,59 +1,86 @@
-# GridWatch
+# GridWatch City
 
-GridWatch City is a data engineering portfolio project that will estimate
-relative electricity demand across Census tracts in Richmond, Virginia.
+GridWatch City is a data engineering portfolio project focused on
+Richmond, Virginia.
 
-The planned Power Demand Index will combine demographic, building,
-weather, and regional grid data. It will represent estimated relative
-demand—not measured electricity consumption.
+The goal is to build an estimated Power Demand Index for Census tracts
+using demographic, building, weather, and regional grid data.
 
-## Current Progress
+The index will represent relative estimated demand, not measured
+electricity consumption.
 
-The local pipeline currently:
+## Current Status
 
-1. Fetches Richmond population and household estimates from the Census API.
-2. Saves the original response and retrieval metadata in Bronze.
-3. Validates row structure, geographic identifiers, and estimates.
-4. Transforms Census records into Silver.
-5. Downloads Virginia Census tract boundaries.
-6. Filters Richmond boundaries and converts them to GeoJSON.
-7. Joins estimates to boundaries using GEOID.
+The project currently produces an interactive population map for
+75 Richmond Census tracts.
 
-The joined dataset contains 75 Richmond Census tracts.
-A Power Demand Index has not yet been calculated.
+The pipeline:
+
+1. Ingests Census population, household, and margin-of-error data.
+2. Saves raw responses and retrieval metadata locally.
+3. Validates the Census data.
+4. Transforms estimates into cleaned records.
+5. Ingests Virginia Census tract boundaries.
+6. Filters and transforms Richmond boundaries.
+7. Joins estimates to polygons using GEOID.
+8. Generates an HTML map with estimates and margins of error on hover.
+
+The Power Demand Index has not yet been calculated.
 
 ## Data Sources
 
 | Source | Dataset | Purpose |
 |---|---|---|
-| U.S. Census Bureau | 2024 ACS 5-year estimates | Population and households |
-| U.S. Census Bureau | 2024 TIGER/Line Virginia tract boundaries | Tract polygons and geographic identifiers |
+| U.S. Census Bureau | 2024 ACS 5-year estimates | Population, households, and sampling uncertainty |
+| U.S. Census Bureau | 2024 TIGER/Line Virginia Census tracts | Geographic boundaries |
 
-The ACS estimates cover 2020–2024; they are not a single-year snapshot.
+The ACS estimates cover **2020–2024**, rather than a single-year snapshot.
 
-Census variables:
-- `B01003_001E`: estimated total population
-- `B11001_001E`: estimated total households
+### Census Variables
 
-Richmond city is selected using state code `51` and county-equivalent
-code `760`.
+| Variable | Meaning |
+|---|---|
+| `B01003_001E` | Estimated population |
+| `B01003_001M` | Population margin of error |
+| `B11001_001E` | Estimated households |
+| `B11001_001M` | Household margin of error |
+
+ACS margins of error use a **90% confidence level** and are expressed
+in the same units as the corresponding estimates.
+
+The margins describe sampling uncertainty; they do not account for
+all possible sources of error.
+
+### Geographic Scope
+
+The project covers Richmond city limits, not the broader metropolitan area.
+
+Richmond is an independent city represented as a county equivalent:
+
+- Virginia state code: `51`
+- Richmond city county-equivalent code: `760`
+
+Tract GEOIDs combine state, county, and tract codes. They remain strings
+to preserve leading zeros.
 
 ## Architecture
 
 ```text
-Census API ──→ Raw JSON + metadata ──→ Validation ──→ Cleaned JSON
-                                                              │
-                                                              ▼
-                                                        GEOID join
-                                                              ▲
-                                                              │
-TIGER/Line ──→ Raw ZIP ──→ Richmond boundaries in GeoJSON ──────┘
-                                                              │
-                                                              ▼
-                                                     Joined GeoJSON
+Census API
+    → Bronze JSON + metadata
+    → Validation
+    → Silver Census records
+                              \
+                               → GEOID join → Joined Silver GeoJSON
+                              /                         ↓
+TIGER/Line ZIP                                         HTML map
+    → Bronze archive
+    → Richmond filtering and coordinate transformation
+    → Silver boundaries
 ```
 
-Processing currently uses Python, pandas, and GeoPandas.
+Development currently runs locally using Python, pandas, GeoPandas,
+and Folium.
 
 ## Project Structure
 
@@ -66,165 +93,246 @@ GridWatch/
 │   ├── ingest_boundaries.py
 │   ├── inspect_boundaries.py
 │   ├── transform_boundaries.py
-│   └── join_census_boundaries.py
+│   ├── join_census_boundaries.py
+│   └── map_population.py
 ├── data/
 │   ├── bronze/
 │   │   ├── census/
 │   │   └── boundaries/
-│   └── silver/
-│       ├── census/
-│       ├── boundaries/
-│       └── joined/
+│   ├── silver/
+│   │   ├── census/
+│   │   ├── boundaries/
+│   │   └── joined/
+│   └── maps/
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
 └── README.md
 ```
 
-Local datasets, credentials, and the virtual environment are excluded
-from Git.
+Credentials, local datasets, generated maps, and the virtual environment
+are excluded from Git.
 
 ## Setup
 
-Run these commands from the project root in PowerShell.
+Run commands from the project root in PowerShell.
 
-### Create the Python environment
+### Create a Virtual Environment
 
 ```powershell
 python -m venv .venv
+```
+
+### Install Dependencies
+
+```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-### Configure the Census API key
+### Configure the Census API Key
 
-Copy the configuration template:
+For initial setup, copy the template:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Set your key in `.env`:
+If `.env` already exists, edit it instead of overwriting it.
+
+Set your key:
 
 ```dotenv
 CENSUS_API_KEY=your_key_here
 ```
 
-Do not commit `.env`. Boundary downloads do not require an API key.
+Do not commit `.env` or include the key in logs or saved metadata.
+
+Boundary downloads do not require an API key.
 
 ## Run the Pipeline
 
-Replace filenames in angle brackets with your actual filenames.
-Do not type the angle brackets.
+Replace placeholder filenames with the actual filenames printed by
+each script. Do not type the angle brackets.
 
-### 1. Ingest Census estimates
+### 1. Ingest Census Data
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\ingest_census.py
 ```
 
-Creates timestamped raw JSON and metadata files under
-`data/bronze/census/`.
+Creates two files under `data/bronze/census/`:
 
-### 2. Validate a Census snapshot
+- A timestamped raw JSON response
+- A matching `.metadata.json` file
+
+Metadata includes the endpoint, request parameters without the API key,
+retrieval timestamp, raw filename, and tract count.
+
+Each ingestion run creates a new snapshot.
+
+### 2. Validate Census Data
+
+Use the raw JSON file, not its metadata companion.
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\validate_census.py "data/bronze/census/<raw_file>.json"
 ```
 
-Checks:
-- Expected columns and at least one data row
-- Row structure
-- Geographic code format and Richmond city scope
-- Unique GEOIDs
-- Nonnegative integer population and household estimates
+Validation checks:
 
-### 3. Transform Census estimates
+- A header and at least one data row
+- Supported columns with no duplicate column names
+- Consistent row structure
+- Geographic code format and Richmond scope
+- Unique tract GEOIDs
+- Nonnegative whole-number estimates and margins of error
+
+The validator supports both the original estimate-only schema and
+the newer schema containing both margin-of-error fields.
+
+Missing or negative numeric values are flagged for investigation.
+
+### 3. Transform Census Data
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\transform_census.py "data/bronze/census/<raw_file>.json"
 ```
 
-Validates the input and saves cleaned records under `data/silver/census/`.
+Validates the source and saves cleaned JSON under `data/silver/census/`.
 
-### 4. Ingest tract boundaries
+Current records contain:
+
+```json
+{
+  "geoid": "51760010201",
+  "tract_name": "Census Tract 102.01; Richmond city; Virginia",
+  "population": 2061,
+  "households": 989,
+  "population_moe": 375,
+  "households_moe": 143
+}
+```
+
+Older source snapshots produce records without the MOE fields.
+
+### 4. Ingest Boundaries
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\ingest_boundaries.py
 ```
 
-Downloads a timestamped Virginia tract ZIP under
-`data/bronze/boundaries/`. Each run downloads a new snapshot.
+Downloads the 2024 Virginia tract ZIP to `data/bronze/boundaries/`
+and checks that it is a valid ZIP archive.
 
-### 5. Inspect an existing archive
+Each run downloads a new snapshot.
+
+### 5. Inspect an Existing Archive
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\inspect_boundaries.py "data/bronze/boundaries/<archive>.zip"
 ```
 
-Lists archive contents without downloading another file.
+Lists archive contents without downloading or extracting another file.
 
-### 6. Transform boundaries
+### 6. Transform Boundaries
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\transform_boundaries.py "data/bronze/boundaries/<archive>.zip"
 ```
 
-Filters Richmond tracts, checks for empty results and duplicate GEOIDs,
-and transforms coordinates from EPSG:4269 to EPSG:4326.
-Saves GeoJSON under `data/silver/boundaries/`.
+Reads the archive directly, filters Richmond tracts, and checks for
+empty results and duplicate GEOIDs.
 
-### 7. Join estimates and boundaries
+Coordinates are transformed from EPSG:4269 to EPSG:4326.
+
+Output is saved under `data/silver/boundaries/` as GeoJSON containing:
+
+- `geoid`
+- `tract_name`
+- `geometry`
+
+### 7. Join Census Data and Boundaries
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\join_census_boundaries.py "data/silver/census/<cleaned_file>.json" "data/silver/boundaries/<boundary_file>.geojson"
 ```
 
-Checks for missing and duplicate GEOIDs, verifies that both datasets
-contain the same GEOIDs, and performs a one-to-one attribute join.
+The script checks for missing and duplicate GEOIDs, confirms that
+both datasets contain the same GEOID set, and performs a one-to-one
+attribute join.
 
-Saves the joined GeoJSON under `data/silver/joined/`.
+Population, households, and available MOE fields are retained.
 
-## Data Layers
+Output is saved under `data/silver/joined/`.
+
+### 8. Generate the Population Map
+
+Use a joined dataset containing both MOE fields for the current map script.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\map_population.py "data/silver/joined/<joined_file>.geojson"
+```
+
+Saves an interactive HTML map under `data/maps/`.
+
+Open the HTML file in a browser. Hover details show:
+
+- Tract GEOID
+- Estimated population
+- Population MOE at the 90% confidence level
+- Estimated households
+- Household MOE at the 90% confidence level
+
+Colors represent **total population per tract**, not population density
+or electricity demand.
+
+The map currently uses no background tiles. Internet access is still
+needed for hosted JavaScript and CSS resources.
+
+## Data Layers and Reproducibility
 
 ### Bronze
 
-Preserves source responses and archives before transformation.
-Census metadata records the request parameters, retrieval time, and
-tract count without storing the API key.
+Preserves original source responses and archives before transformation.
 
 ### Silver
 
-Contains cleaned Census records, Richmond tract boundaries, and their
-joined GeoJSON.
-
-GEOIDs remain strings to preserve leading zeros.
-Population and household estimates are converted to integers.
-
-Transformation filenames identify their source snapshots. Rerunning
-a transformation with the same inputs replaces the corresponding output.
+Contains cleaned Census records, Richmond boundaries, and joined
+geographic data.
 
 ### Gold — Planned
 
-Will contain analytical outputs, including the estimated Power Demand
-Index.
+Will contain analytical outputs, including the estimated Power Demand Index.
+
+Output filenames identify their source snapshots. Running a transformation
+again with the same inputs replaces its corresponding output.
+
+If local datasets are deleted, the scripts can regenerate them by running
+the pipeline in order. New downloads receive new timestamps and may differ
+from earlier source snapshots.
 
 ## Limitations
 
-- Population and households alone do not measure electricity demand.
-- ACS values are survey estimates with uncertainty; margins of error
-  are not currently ingested.
-- The study covers Richmond city limits, not the wider metropolitan area.
-- Weather, building activity, and regional grid demand are not yet included.
+- Demographic estimates do not directly measure electricity consumption.
+- The current map shows population only.
+- ACS estimates contain sampling and nonsampling uncertainty.
+- Tract differences should not be assumed statistically significant.
+- Weather, buildings, commercial activity, and grid demand are not yet included.
+- Pipeline steps currently require manually passing filenames.
+- Dependencies are currently listed without pinned versions.
 
-## Next Steps
+## Planned Improvements
 
-- Create a population map to inspect the joined dataset
-- Add additional demand-related data sources
-- Document and calculate an initial Power Demand Index
-- Add PySpark and SQL analytics as the pipeline develops
-- Explore PostgreSQL/PostGIS, AWS storage, and anomaly detection
+- Add a pipeline runner that passes output paths between steps
+- Add building or commercial activity data
+- Ingest weather and regional grid demand
+- Define and document the initial Power Demand Index
+- Introduce PySpark and SQL analytics
+- Explore PostgreSQL/PostGIS and AWS S3
+- Add incremental loading, retention rules, and anomaly detection
 
 ## Source Documentation
 
 - [ACS 5-year data](https://www.census.gov/data/developers/data-sets/acs-5year.html)
+- [ACS sampling uncertainty and margins of error](https://www.census.gov/programs-surveys/acs/methodology/sample-size-and-data-quality/sample-size-definitions.html)
 - [2024 TIGER/Line files](https://www.census.gov/geographies/mapping-files/2024/geo/tiger-line-file.html)

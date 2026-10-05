@@ -14,12 +14,24 @@ def transform_file(path):
     records = []
 
     for row in data[1:]:
-        records.append({
-            "geoid": row[3] + row[4] + row[5],
-            "tract_name": row[0],
-            "population": int(row[1]),
-            "households": int(row[2]),
-        })
+        source = dict(zip(data[0], row))
+
+        record = {
+            "geoid": (
+                source["state"]
+                + source["county"]
+                + source["tract"]
+            ),
+            "tract_name": source["NAME"],
+            "population": int(source["B01003_001E"]),
+            "households": int(source["B11001_001E"]),
+        }
+
+        if "B01003_001M" in source:
+            record["population_moe"] = int(source["B01003_001M"])
+            record["households_moe"] = int(source["B11001_001M"])
+
+        records.append(record)
     output_dir = PROJECT_ROOT / "data" / "silver" / "census"
     output_dir.mkdir(parents=True, exist_ok=True)
 
