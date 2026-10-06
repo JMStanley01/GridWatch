@@ -198,6 +198,12 @@ Joining:
 GEOIDs remain strings to preserve leading zeros.
 Estimates and MOEs are converted to integers.
 
+
+
+### Logging past runs
+
+When running the run_pipeline file as normal without the --ingest flag, records of past runs will be stored in data/runs
+
 ## Storage and Reproducibility
 
 ### Bronze
