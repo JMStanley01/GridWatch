@@ -6,6 +6,8 @@ from transform_boundaries import transform_file as transform_boundaries
 from join_census_boundaries import join_files
 from map_population import build_map
 
+from ingest_census import ingest_census
+from ingest_boundaries import ingest_boundaries
 
 def run_pipeline(census_path, boundaries_path):
     for path in [census_path, boundaries_path]:
@@ -21,10 +23,18 @@ def run_pipeline(census_path, boundaries_path):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) == 2 and sys.argv[1] == "--ingest":
+        census_path = ingest_census()
+        boundaries_path = ingest_boundaries()
+        run_pipeline(census_path, boundaries_path)
+
+    elif len(sys.argv) == 3:
+        run_pipeline(Path(sys.argv[1]), Path(sys.argv[2]))
+
+    else:
         raise SystemExit(
-            "Usage: python scripts/run_pipeline.py "
+            "Usage:\n"
+            "  python scripts/run_pipeline.py --ingest\n"
+            "  python scripts/run_pipeline.py "
             "<raw_census_json> <boundary_zip>"
         )
-
-    run_pipeline(Path(sys.argv[1]), Path(sys.argv[2]))
