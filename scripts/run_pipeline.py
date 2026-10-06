@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-def run_pipeline(census_path, boundaries_path):
+def run_pipeline(census_path=None, boundaries_path=None, *, ingest=False):
     started_at = datetime.now(timezone.utc)
     run_id = started_at.strftime("%Y%m%dT%H%M%S%fZ")
 
@@ -26,19 +26,41 @@ def run_pipeline(census_path, boundaries_path):
         "run_id": run_id,
         "status": "running",
         "started_at_utc": started_at.isoformat(),
-        "inputs": {
-            "census": str(census_path.resolve()),
-            "boundaries": str(boundaries_path.resolve()),
-        },
+        "mode": "ingest" if ingest else "reprocess",
+        "inputs": {},
         "outputs": {},
     }
 
     stage = "input_check"
 
     try:
+        if ingest:
+            stage = "ingest_census"
+            census_path = ingest_census()
+            manifest["inputs"]["census"] = str(census_path.resolve())
+
+            stage = "ingest_boundaries"
+            boundaries_path = ingest_boundaries()
+            manifest["inputs"]["boundaries"] = str(
+                boundaries_path.resolve()
+            )
+        else:
+            stage = "input_check"
+
+            if census_path is None or boundaries_path is None:
+                raise ValueError("Both input paths are required")
+
+            manifest["inputs"] = {
+                "census": str(census_path.resolve()),
+                "boundaries": str(boundaries_path.resolve()),
+            }
+
+        stage = "input_check"
         for path in [census_path, boundaries_path]:
             if not path.is_file():
                 raise FileNotFoundError(f"Input file not found: {path}")
+
+    
 
         stage = "transform_census"
         census_silver = transform_census(census_path)
@@ -79,9 +101,7 @@ def run_pipeline(census_path, boundaries_path):
 
 if __name__ == "__main__":
     if len(sys.argv) == 2 and sys.argv[1] == "--ingest":
-        census_path = ingest_census()
-        boundaries_path = ingest_boundaries()
-        run_pipeline(census_path, boundaries_path)
+        run_pipeline(ingest=True)
 
     elif len(sys.argv) == 3:
         run_pipeline(Path(sys.argv[1]), Path(sys.argv[2]))
